@@ -182,7 +182,7 @@ class Big < Numeric
     Big.new(normalize_quotient(other, quotient), scale + i)
   end
 
-  def <=>(other )
+  def <=>(other)
     other = self.class.new(other)
     if @scale > other.scale
       @value <=> other.scale_to(self).value
@@ -193,6 +193,21 @@ class Big < Numeric
     end
   end
 
+  def ==(other)
+    other = self.class.new(other)
+    case @scale
+    when @scale > (other.scale)
+      scaled = other.value * power_ten_to(@scale - other.scale)
+      @value == scaled
+    when @scale < (other.scale)
+      scaled = @value * power_ten_to(other.scale - @scale)
+      scaled == other.value
+    else
+      @value == other.value
+    end
+  end
+
+
   def scale_to(new_scale)
     in_scale(new_scale.scale)
   end
@@ -202,7 +217,7 @@ class Big < Numeric
       Big.new(0, new_scale)
     elsif @scale > new_scale
       scale_diff = @scale - new_scale
-      Big.new(@value / power_ten_to(scale_diff), new_scale)
+      Big.new(@value / power_ten_to(scale_diff), new_scale) #should we floor this?
     elsif @scale < new_scale
       scale_diff = new_scale - @scale
       Big.new(@value * power_ten_to(scale_diff), new_scale)
@@ -210,6 +225,56 @@ class Big < Numeric
       self
     end
   end
+
+  def **(other)
+    if other < 0
+      raise ArgumentError.new("Negative exponent isn't supported")
+    end
+    Big.new(@value ** other, @scale * other)
+  end
+
+  def ceil
+    mask = power_ten_to(@scale)
+    diff = (mask - @value % mask) % mask
+    value = self + Big.new(diff, @scale)
+    value.in_scale(0)
+  end
+
+  def floor
+    in_scale(0)
+  end
+
+  def trunc
+    self < 0 ? ceil : floor
+  end
+
+  def to_s(io = "")
+    factor_powers_of_ten
+
+    s = @value.to_s
+    if @scale == 0
+      io << s
+      return
+    end
+
+    if @scale >= s.size && @value >= 0
+      io << "0."
+      (@scale - s.size).times do
+        io << '0'
+      end
+      io << s
+    elsif @scale >= (s.size-1) && @value < 0
+      io << "-0."
+      (@scale - s.size).times do
+        io << '0'
+      end
+      io << s[1..-1]
+    else
+      offset = s.size - @scale
+      io << s[0...offset] << '.' << s[offset..-1]
+    end
+  end
+
 
   def normalize_quotient(other, quotient)
     if (@value < 0 && other.value > 0) || (other.value < 0 && @value > 0)

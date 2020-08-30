@@ -144,6 +144,63 @@ class TestMyLife < MiniTest::Test
     assert_equal -1, result
   end
 
+  def test_equal
+    big3 = Big.new("0.3")
+    assert_equal 3, big3.value
+    assert_equal 1, big3.scale
+
+    big4 = Big.new("4.2")
+    assert_equal 42, big4.value
+    assert_equal 1, big4.scale
+
+    result = big3 == big4
+
+    assert !result
+
+    big3 = Big.new("0.3")
+    assert_equal 3, big3.value
+    assert_equal 1, big3.scale
+
+    big4 = Big.new("3e-1")
+    assert_equal 3, big4.value
+    assert_equal 1, big4.scale
+
+    result = big3 == big4
+
+    assert result
+
+    assert big3 == 0.3
+  end
+
+  def test_power
+    big = Big.new(1234, 2) ** 2
+    assert_equal 152.2756, big
+
+  end
+
+  def test_ceil
+    big = Big.new(123456, 4)
+    assert_equal 13, big.ceil
+
+    big = Big.new(-123456, 4)
+    assert_equal -12, big.ceil
+
+  end
+
+  def test_to_s
+    # big = Big.new(3456, 4)
+    # assert_equal "0.3456",big.to_s
+    #
+    # big = Big.new(-3456, 4)
+    # assert_equal "-0.3456",big.to_s
+
+    big = Big.new(123456, 4)
+    assert_equal "12.3456",big.to_s
+
+    big = Big.new(-123456, 4)
+    assert_equal "-12.3456",big.to_s
+  end
+
   def test_sleep
     # assert_equal exp, act, msg
     #assert_equal   "zzZ", @big.sleep, "I don't sleep well "

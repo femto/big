@@ -1,3 +1,4 @@
+require_relative 'big_int'
 class InvalidBigDecimalException < Exception
   def initialize(big_decimal_str, reason)
     super("Invalid BigDecimal: #{big_decimal_str} (#{reason})")

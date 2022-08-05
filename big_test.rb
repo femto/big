@@ -2,7 +2,7 @@ require 'minitest/autorun'
 require './big'
 # 注意有些资料中，测试类不是继承自MiniTest::Test，
 # 那是MiniTest 5之前的做法，MiniTest会通知你改正
-class TestMyLife < MiniTest::Test
+class TestBig < MiniTest::Test
   # 这个方法会在各个测试之前被调用
   def setup
     #@big = Big.new("0.00")
@@ -20,6 +20,10 @@ class TestMyLife < MiniTest::Test
     big3 = Big.new("3")
     assert_equal 3, big3.value
     assert_equal 0, big3.scale
+
+    big4 = Big.new(".1234")
+    assert_equal 1234, big4.value
+    assert_equal 4, big4.scale
   end
 
   def test_build_from_string_exponent
@@ -128,6 +132,11 @@ class TestMyLife < MiniTest::Test
 
     assert_equal 33333, big.value
     assert_equal 5, big.scale
+
+    big = Big.new(2).div(Big.new(3), 1)
+
+    assert_equal 6, big.value
+    assert_equal 1, big.scale
   end
 
   def test_compare
@@ -184,6 +193,12 @@ class TestMyLife < MiniTest::Test
 
     big = Big.new(-123456, 4)
     assert_equal -12, big.ceil
+
+    big = Big.new(120000, 4)
+    assert_equal 12, big.ceil
+
+    big = Big.new(12, 0)
+    assert_equal 12, big.ceil
 
   end
 

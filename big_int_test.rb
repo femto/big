@@ -93,6 +93,47 @@ class TestBigInt < MiniTest::Test
     big1 = BigInt.make([1,4],1)
     assert_equal "4294967300", big1.to_s
   end
+  def test_exactDivideBy3
+    big1 = BigInt.make([21],1)
+    assert_equal "7", big1.exactDivideBy3.to_s
+  end
+  def test_get_lower
+    big1 = BigInt.make([1,2,3,4],1)
+    assert_equal BigInt.make([3,4],1), big1.getLower(2)
+  end
+  def test_get_upper
+    big1 = BigInt.make([1,2,3,4],1)
+    assert_equal BigInt.make([1,2],1), big1.getUpper(2)
+  end
+
+  def test_shiftRightImpl
+    # big1 = BigInt.make([0x1234,0b10,0b11,0b1001],1)
+    # assert_equal BigInt.make([0x48d,0,0x80000000,0xc0000002],1), big1.shiftRightImpl(2)
+
+    big1 = BigInt.make([0x2,0b10,0b11,0b1001],1)
+    assert_equal BigInt.make([0x80000000,0x80000000,0xc0000002],1), big1.shiftRightImpl(2)
+  end
+  def test_shiftRight
+    # big1 = BigInt.make([0x1234,0b10,0b11,0b1001],1)
+    # assert_equal BigInt.make([0x48d,0,0x80000000,0xc0000002],1), big1.shiftRightImpl(2)
+
+    # big1 = BigInt.make([0x1],-1)
+    # assert_equal BigInt.make([0x1],-1), big1.shiftRightImpl(1)
+    big1 = BigInt.value_of(-0x2ffffffff)
+    assert_equal "-6442450944", big1.shiftRight(1).to_s
+    big1 = BigInt.value_of(-0x3ffffffff)
+    assert_equal BigInt.make([2,0],-1), big1.shiftRight(1)
+    assert_equal "-8589934592", big1.shiftRight(1).to_s
+  end
+  def test_shift_left
+    big1 = BigInt.make([0x80000000],1)
+    assert_equal BigInt.make([1,0],1), big1.shiftLeft(1)
+
+    big1 = BigInt.make([0x80000000,0xffffffff],1)
+    assert_equal BigInt.make([1,1,0xfffffffe],1), big1.shiftLeft(1)
+    big1 = BigInt.make([0x1,0xffffffff],1)
+    assert_equal BigInt.make([0b11,0xfffffffe],1), big1.shiftLeft(1)
+  end
 
 
   def teardown

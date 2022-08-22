@@ -1,7 +1,7 @@
 require_relative 'integer'
 class BigInt
   attr_accessor :mag, :signum
-
+  class ArithmeticException < Exception; end
   def initialize(str = "", base = 10)
     # Strip leading '+' char to smooth out cases with strings like "+123"
     self.mag = []
@@ -10,6 +10,15 @@ class BigInt
     str = str.delete('_')
 
   end
+  def reportOverflow()
+    raise ArithmeticException, "BigInteger would overflow supported range"
+  end
+  def checkRange()
+    if (mag.length > MAX_MAG_LENGTH || mag.length == MAX_MAG_LENGTH && signum < 0)
+      reportOverflow();
+    end
+  end
+
   def ==(other)
     return false unless other.is_a? BigInt
     self.signum == other.signum && self.mag == other.mag
@@ -210,6 +219,7 @@ class BigInt
   ZERO = BigInt.make([],0)
   NEGATIVE_ONE = BigInt.make([1],-1)
   LONG_MASK = 0xffffffff;
+  MAX_MAG_LENGTH = 1<<26
 
   SCHOENHAGE_BASE_CONVERSION_THRESHOLD = 20
   MULTIPLY_SQUARE_THRESHOLD = 20
@@ -265,10 +275,36 @@ class BigInt
     end
     BigInt.make(rmag,sign)
   end
+  def square
+    square_internal(false)
+  end
+  def square_internal(isRecursion)
+    return ZERO if (signum == 0)
+    len = mag.length
+    if (len < KARATSUBA_SQUARE_THRESHOLD)
+      z = squareToLen(mag, len, nil);
+      return BigInt.make(BigInt.trustedStripLeadingZeroInts(z), 1);
+     else
+      # if (len < TOOM_COOK_SQUARE_THRESHOLD) {
+      #   return squareKaratsuba();
+      # } else {
+      #   //
+      # // For a discussion of overflow detection see multiply()
+      # //
+      # if (!isRecursion) {
+      #   if (bitLength(mag, mag.length) > 16L*MAX_MAG_LENGTH) {
+      #     reportOverflow();
+      #   }
+      #   }
+      #
+      #   return squareToomCook3();
+      #   }
+      end
+  end
+
   def multiply_internal(val, recursive=false)
     return ZERO if (val.signum == 0 || signum == 0)
     xlen = mag.length;
-    #todo:saure
     # if (val.equal?(self) && xlen > MULTIPLY_SQUARE_THRESHOLD)
     #   return square();
     # end
@@ -291,10 +327,26 @@ class BigInt
       if ((xlen < TOOM_COOK_THRESHOLD) && (ylen < TOOM_COOK_THRESHOLD))
         return multiplyKaratsuba(val)
       else
+        if (!isRecursion)
+          if (bitLength(mag, mag.length) +
+            bitLength(val.mag, val.mag.length) >
+            32*MAX_MAG_LENGTH)
+            reportOverflow();
+          end
+        end
+        return multiplyToomCook3(val)
       end
     end
   end
-  alias :multiply :-
+  alias :multiply :*
+
+  def bitLength(val,len=nil)
+    return 0 if (len == 0)
+    return ((len - 1) << 5) + bitLengthForInt(val[0]);
+  end
+  def bitLengthForInt(n)
+    return 32 - Integer.numberOfLeadingZeros(n);
+  end
 
   def getLower(n)
     len = mag.length;
@@ -467,6 +519,73 @@ class BigInt
     else
       return result;
     end
+  end
+
+  def multiplyToomCook3(y)
+    x=self
+    alen = a.mag.length;
+    blen = b.mag.length;
+    largest = Math.max(alen, blen);
+    k = (largest+2)/3;
+    r = largest - 2*k;
+
+    a2 = a.getToomSlice(k, r, 0, largest);
+    a1 = a.getToomSlice(k, r, 1, largest);
+    a0 = a.getToomSlice(k, r, 2, largest);
+    b2 = b.getToomSlice(k, r, 0, largest);
+    b1 = b.getToomSlice(k, r, 1, largest);
+    b0 = b.getToomSlice(k, r, 2, largest);
+
+    v0 = a0.multiply_internal(b0, true);
+
+    da1 = a2.add(a0);
+    db1 = b2.add(b0);
+    vm1 = da1.subtract(a1).multiply_internal(db1.subtract(b1), true);
+    da1 = da1.add(a1);
+    db1 = db1.add(b1);
+    v1 = da1.multiply_internal(db1, true);
+    v2 = da1.add(a2).shiftLeft(1).subtract(a0).multiply_internal(
+      db1.add(b2).shiftLeft(1).subtract(b0), true);
+    vinf = a2.multiply_internal(b2, true);
+
+    t2 = v2.subtract(vm1).exactDivideBy3();
+    tm1 = v1.subtract(vm1).shiftRight(1);
+    t1 = v1.subtract(v0);
+    t2 = t2.subtract(t1).shiftRight(1);
+    t1 = t1.subtract(tm1).subtract(vinf);
+    t2 = t2.subtract(vinf.shiftLeft(1));
+    tm1 = tm1.subtract(t2);
+
+    # Number of bits to shift left.
+      int ss = k*32;
+
+    result = vinf.shiftLeft(ss).add(t2).shiftLeft(ss).add(t1).shiftLeft(ss).add(tm1).shiftLeft(ss).add(v0);
+    if (a.signum != b.signum)
+      return result.negate();
+    else
+      return result;
+    end
+  end
+  def getToomSlice lowerSize,  upperSize,  slice,
+                              fullsize
+    len = mag.length;
+    offset = fullsize - len;
+    if (slice == 0)
+      start = 0 - offset;
+      _end = upperSize - 1 - offset;
+    else
+      start = upperSize + (slice-1)*lowerSize - offset;
+      _end = start + lowerSize - 1;
+    end
+    start = 0 if (start < 0)
+    return ZERO if (_end < 0)
+
+    sliceSize = (_end-start) + 1;
+
+    return ZERO if (sliceSize <= 0)
+    return this.abs() if (start == 0 && sliceSize >= len)
+    intSlice = mag[start.._end]
+    return BigInt.make(intSlice, 1)
   end
 
   def compareMagnitude(val)
